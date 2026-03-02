@@ -133,7 +133,7 @@ PRESETS = {
 class AIPlayer(Player):
     """AI opponent with decision-making logic"""
     
-    AI_NAMES = ["The Duke", "Lady Contessa", "Captain Vex"]
+    AI_NAMES = ["The Duke", "Lady Contessa", "Captain Vex", "Baron Bluff", "The Ambassador"]
     
     def __init__(self, name: str, preset_name: str = None):
         super().__init__(name)
@@ -410,7 +410,7 @@ class GameEngine:
         # AI players
         all_presets = list(PRESETS.keys())
         shuffle(all_presets)
-        assigned = all_presets[:num_ai]
+        assigned = [all_presets[i % len(all_presets)] for i in range(num_ai)]
         for i in range(num_ai):
             name = AIPlayer.AI_NAMES[i] if i < len(AIPlayer.AI_NAMES) else f"AI {i+1}"
             ai = AIPlayer(name, preset_name=assigned[i])
@@ -651,8 +651,9 @@ class GameEngine:
                     actor.coins += cost
                 return  # Turn ends
             
-            if challenge_result != "challenged_and_succeeded":
-                # If not successfully challenged, check for blocks
+            # Check for blocks regardless of whether a challenge was attempted.
+            # A failed challenge (actor proved their card) does not prevent blocking.
+            if block_cards:
                 block_result = self._process_blocks(action, actor, target, block_cards)
                 
                 if block_result == "blocked":
@@ -789,7 +790,7 @@ class GameEngine:
                 should_challenge = False
                 
                 if player.is_human:
-                    response = input(color(f"Challenge {target.name}'s block? (y/n): ", 
+                    response = input(color(f"Challenge {blocker.name}'s block? (y/n): ", 
                                           Colors.YELLOW)).strip().lower()
                     should_challenge = response == 'y'
                 else:
@@ -971,15 +972,15 @@ def main():
     print("The last player standing wins!")
     
     # Get number of AI opponents
-    print("\n" + color("How many AI opponents? (2 or 3): ", Colors.YELLOW))
+    print("\n" + color("How many AI opponents? (2-5): ", Colors.YELLOW))
     
     while True:
         try:
             num_ai = input().strip()
             num_ai = int(num_ai)
-            if num_ai in [2, 3]:
+            if 2 <= num_ai <= 5:
                 break
-            print(color("Please enter 2 or 3.", Colors.RED))
+            print(color("Please enter 2-5.", Colors.RED))
         except ValueError:
             print(color("Please enter a number.", Colors.RED))
     
