@@ -5,9 +5,10 @@ CLI implementation for 1 human vs 2-3 AI opponents
 """
 
 from enum import Enum
-from random import shuffle, choice, randint, random
+import random
 from typing import List, Optional, Dict, Tuple
 import sys
+import argparse
 
 # =============================================================================
 # CONSTANTS AND ENUMS
@@ -139,7 +140,7 @@ class AIPlayer(Player):
         super().__init__(name)
         self.is_human = False
         if preset_name is None:
-            preset_name = choice(list(PRESETS.keys()))
+            preset_name = random.choice(list(PRESETS.keys()))
         self.preset_name = preset_name
         p = PRESETS[preset_name]
         self.bluff_rate          = p["bluff_rate"]
@@ -161,8 +162,8 @@ class AIPlayer(Player):
             return Action.COUP, target
 
         # Low skill: occasionally just bumble and take Income
-        if random() > self.skill:
-            return choice([Action.INCOME, Action.FOREIGN_AID]), None
+        if random.random() > self.skill:
+            return random.choice([Action.INCOME, Action.FOREIGN_AID]), None
 
         # Prefer strong actions when profitable
         if self.coins >= 7 and self._should_coup(game_state):
@@ -185,7 +186,7 @@ class AIPlayer(Player):
                 return Action.ASSASSINATE, target
         
         # Fallback to income or foreign aid
-        if randint(0, 1) == 0:
+        if random.randint(0, 1) == 0:
             return Action.INCOME, None
         else:
             return Action.FOREIGN_AID, None
@@ -201,16 +202,16 @@ class AIPlayer(Player):
     
     def _should_coup(self, game_state: 'GameState') -> bool:
         """Decide if we should coup"""
-        return self.coins >= 7 and randint(0, 2) == 0
+        return self.coins >= 7 and random.randint(0, 2) == 0
     
     def _choose_coup_target(self, game_state: 'GameState'):
         """Choose who to coup — aggression + grudge"""
         targets = [p for p in game_state.active_players if p != self]
         if not targets:
             return None
-        if self.last_challenged_by and self.last_challenged_by in targets and random() < 0.7:
+        if self.last_challenged_by and self.last_challenged_by in targets and random.random() < 0.7:
             return self.last_challenged_by
-        if random() < self.aggression:
+        if random.random() < self.aggression:
             targets.sort(key=lambda p: -p.coins)
         else:
             targets.sort(key=lambda p: (p.influence, -p.coins))
@@ -222,10 +223,10 @@ class AIPlayer(Player):
             return self.has_card(card)
         if self.has_card(card):
             return True
-        if random() > self.consistency:
-            return random() < 0.25  # Inconsistent — random noise
+        if random.random() > self.consistency:
+            return random.random() < 0.25  # Inconsistent — random noise
         unknown_copies = game_state.unknown_copies(card, self)
-        return random() < (unknown_copies / 3.0) * self.bluff_rate
+        return random.random() < (unknown_copies / 3.0) * self.bluff_rate
     
     def _choose_steal_target(self, game_state: 'GameState') -> Optional['Player']:
         """Choose who to steal from"""
@@ -241,7 +242,7 @@ class AIPlayer(Player):
     
     def _should_assassinate(self, game_state: 'GameState') -> bool:
         """Decide if we should assassinate"""
-        return self.coins >= 3 and randint(0, 2) <= 1
+        return self.coins >= 3 and random.randint(0, 2) <= 1
     
     def _choose_assassinate_target(self, game_state: 'GameState') -> Optional['Player']:
         """Choose who to assassinate"""
@@ -249,39 +250,39 @@ class AIPlayer(Player):
         # Prefer targets with 1 influence (elimination)
         one_inf = [p for p in targets if p.influence == 1]
         if one_inf:
-            return choice(one_inf)
-        return choice(targets) if targets else None
+            return random.choice(one_inf)
+        return random.choice(targets) if targets else None
     
     def decide_challenge(self, action: Action, claimed_card,
                          actor, game_state) -> bool:
         """Decide whether to challenge"""
         if claimed_card is None:
             return False
-        if random() > self.consistency:
-            return random() < 0.15
+        if random.random() > self.consistency:
+            return random.random() < 0.15
         revealed_count = sum(1 for p in game_state.active_players for c in p.revealed if c == claimed_card)
         our_count = sum(1 for c in self.cards if c == claimed_card)
         remaining = max(0, 3 - revealed_count - our_count)
         p_has = remaining / 3.0
-        return random() > (p_has + self.challenge_threshold * 0.5)
+        return random.random() > (p_has + self.challenge_threshold * 0.5)
 
     def decide_block(self, action: Action, actor, game_state) -> object:
         """Decide whether and how to block"""
-        if random() > self.consistency:
+        if random.random() > self.consistency:
             return None
         if action == Action.FOREIGN_AID:
-            if self.has_card(Card.DUKE) and random() < self.block_rate:
+            if self.has_card(Card.DUKE) and random.random() < self.block_rate:
                 return Card.DUKE
             if self._should_bluff_block(Card.DUKE, game_state):
                 return Card.DUKE
         elif action == Action.ASSASSINATE:
-            if self.has_card(Card.CONTESSA) and random() < self.block_rate:
+            if self.has_card(Card.CONTESSA) and random.random() < self.block_rate:
                 return Card.CONTESSA
             if self._should_bluff_block(Card.CONTESSA, game_state):
                 return Card.CONTESSA
         elif action == Action.STEAL:
             for card in [Card.CAPTAIN, Card.AMBASSADOR]:
-                if self.has_card(card) and random() < self.block_rate:
+                if self.has_card(card) and random.random() < self.block_rate:
                     return card
             for card in [Card.CAPTAIN, Card.AMBASSADOR]:
                 if self._should_bluff_block(card, game_state):
@@ -292,7 +293,7 @@ class AIPlayer(Player):
         """Decide if we should bluff a block"""
         if card in self.exposed_bluffs:
             return False
-        return random() < self.bluff_rate * self.block_rate * 0.3
+        return random.random() < self.bluff_rate * self.block_rate * 0.3
     
     def respond_to_challenge(self, claimed_card: Card) -> bool:
         """Handle being challenged - return True if we can prove"""
@@ -398,7 +399,7 @@ class GameEngine:
         for card in Card:
             for _ in range(3):
                 self.court_deck.append(card)
-        shuffle(self.court_deck)
+        random.shuffle(self.court_deck)
     
     def _create_players(self, num_ai: int):
         """Create human and AI players"""
@@ -409,7 +410,7 @@ class GameEngine:
         
         # AI players
         all_presets = list(PRESETS.keys())
-        shuffle(all_presets)
+        random.shuffle(all_presets)
         assigned = [all_presets[i % len(all_presets)] for i in range(num_ai)]
         for i in range(num_ai):
             name = AIPlayer.AI_NAMES[i] if i < len(AIPlayer.AI_NAMES) else f"AI {i+1}"
@@ -456,7 +457,7 @@ class GameEngine:
     def _return_card(self, card: Card):
         """Return a card to the deck and shuffle"""
         self.court_deck.append(card)
-        shuffle(self.court_deck)
+        random.shuffle(self.court_deck)
     
     def _get_game_state(self) -> GameState:
         """Get current game state for AI decisions"""
@@ -963,6 +964,15 @@ class GameEngine:
 
 def main():
     """Main entry point for the game"""
+    parser = argparse.ArgumentParser(description="Coup - A Game of Bluff and Deduction")
+    parser.add_argument("--seed", type=int, help="Seed for random number generation (for reproducible games)")
+    args = parser.parse_args()
+    
+    # Seed random if provided
+    if args.seed is not None:
+        random.seed(args.seed)
+        print(color(f"\nUsing random seed: {args.seed}", Colors.YELLOW))
+    
     print(color("\n" + "=" * 60, Colors.CYAN))
     print(color("COUP - A Game of Bluff and Deduction", Colors.BOLD + Colors.CYAN))
     print(color("=" * 60, Colors.CYAN))
